@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockMind AI — Prediction Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #070b0f;
+    --bg2: #0b1117;
+    --bg3: #0f161e;
+    --card: #0c1520;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --green: #00e5a0;
+    --red: #ff3d5a;
+    --blue: #4d9fff;
+    --amber: #ffaa00;
+    --purple: #9b6dff;
+    --text: #e8edf2;
+    --muted: #5a6a7a;
+    --muted2: #2a3a4a;
+    --accent: #00e5a0;
+    --glow: rgba(0,229,160,0.12);
+    --chat-w: 360px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ─────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(7,11,15,0.97);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    backdrop-filter: blur(12px);
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, #00e5a0, #00b8ff);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800; font-size: 13px; color: #000;
+  }
+
+  .logo-text { font-size: 15px; font-weight: 800; letter-spacing: 0.05em; }
+  .logo-sub { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--green); letter-spacing: 0.18em; }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--green); letter-spacing: 0.1em;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--green); border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(0,229,160,0.4); }
+    50% { opacity:.5; box-shadow: 0 0 0 4px rgba(0,229,160,0); }
+  }
+
+  .market-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .chat-toggle-btn {
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--green);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    cursor: pointer; letter-spacing: 0.05em;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .chat-toggle-btn:hover { background: rgba(0,229,160,0.18); }
+
+  /* ── TICKER ─────────────────────────────────── */
+  .ticker-wrap {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden; height: 30px;
+    display: flex; align-items: center;
+  }
+
+  .ticker-track {
+    display: flex; gap: 48px;
+    animation: tickerScroll 60s linear infinite;
+    white-space: nowrap;
+  }
+
+  @keyframes tickerScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+
+  .ticker-sym { color: var(--text); font-weight: 700; }
+  .ticker-price { color: var(--muted); }
+  .ticker-chg.up { color: var(--green); }
+  .ticker-chg.dn { color: var(--red); }
+
+  /* ── LAYOUT ─────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 228px 1fr;
+    min-height: calc(100vh - 90px);
+    transition: grid-template-columns 0.3s ease;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 14px 0;
+    background: var(--bg2);
+    overflow-y: auto;
+  }
+
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--muted); letter-spacing: 0.18em;
+    padding: 0 14px 10px; text-transform: uppercase;
+  }
+
+  .stock-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.12s;
+  }
+
+  .stock-item:hover { background: rgba(255,255,255,0.04); }
+  .stock-item.active { background: rgba(0,229,160,0.06); border-left-color: var(--green); }
+
+  .stock-logo {
+    width: 30px; height: 30px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; flex-shrink: 0;
+  }
+
+  .stock-info { flex: 1; min-width: 0; }
+  .stock-sym { font-weight: 700; font-size: 12px; line-height: 1.2; }
+  .stock-name { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stock-price-col { text-align: right; }
+  .stock-price { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; line-height: 1.2; }
+  .stock-chg { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .up { color: var(--green); }
+  .dn { color: var(--red); }
+
+  /* ── CONTENT ─────────────────────────────────── */
+  .content {
+    padding: 20px;
+    background: var(--bg);
+    overflow-y: auto;
+    min-width: 0;
+  }
+
+  /* ── COMPANY HEADER ──────────────────────────── */
+  .company-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .company-logo-big {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 900; flex-shrink: 0; margin-right: 14px;
+  }
+
+  .company-title-group { flex: 1; }
+  .company-name { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; }
+  .company-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .company-meta { display: flex; align-items: center; gap: 20px; margin-top: 10px; }
+
+  .price-big { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600; line-height: 1; }
+  .price-change-big { font-family: 'JetBrains Mono', monospace; font-size: 14px; margin-top: 4px; }
+
+  .ai-predict-btn {
+    background: var(--green); color: #000;
+    border: none; border-radius: 8px;
+    padding: 10px 18px;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.02em;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  .ai-predict-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .ai-predict-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── METRICS ─────────────────────────────────── */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    gap: 8px; margin-bottom: 16px;
+  }
+
+  .metric-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px;
+  }
+
+  .metric-lbl {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--muted); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 5px;
+  }
+
+  .metric-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+
+  /* ── CANDLESTICK CHART ───────────────────────── */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  .chart-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .chart-title {
+    font-size: 12px; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .range-tabs {
+    display: flex; gap: 3px;
+    background: var(--bg2); border-radius: 6px; padding: 3px;
+  }
+
+  .range-tab {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    padding: 4px 9px; border-radius: 4px;
+    cursor: pointer; color: var(--muted);
+    background: none; border: none; transition: all 0.12s;
+  }
+
+  .range-tab.active { background: var(--bg3); color: var(--text); }
+  .range-tab:hover:not(.active) { color: var(--text); }
+
+  .chart-canvas-wrap { position: relative; width: 100%; height: 280px; }
+
+  /* ── PREDICTION CARDS ───────────────────────── */
+  .pred-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-bottom: 16px;
+  }
+
+  .pred-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+    position: relative; overflow: hidden;
+  }
+
+  .pred-card.bullish { border-color: rgba(0,229,160,0.25); }
+  .pred-card.bearish { border-color: rgba(255,61,90,0.25); }
+  .pred-card.neutral { border-color: rgba(255,170,0,0.2); }
+
+  .pred-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+  }
+  .pred-card.bullish::before { background: var(--green); }
+  .pred-card.bearish::before { background: var(--red); }
+  .pred-card.neutral::before { background: var(--amber); }
+
+  .pred-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--muted); letter-spacing: 0.14em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+
+  .pred-direction { font-size: 17px; font-weight: 800; margin-bottom: 3px; }
+  .pred-direction.bullish { color: var(--green); }
+  .pred-direction.bearish { color: var(--red); }
+  .pred-direction.neutral { color: var(--amber); }
+
+  .pred-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; margin-top: 5px; }
+  .pred-confidence { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  .conf-bar-wrap { margin: 6px 0 0; }
+  .conf-bar { height: 3px; background: var(--muted2); border-radius: 2px; overflow: hidden; margin-top: 5px; }
+  .conf-bar-fill { height: 100%; border-radius: 2px; transition: width 1.2s ease; }
+
+  /* ── AI PANEL ───────────────────────────────── */
+  .ai-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; margin-bottom: 16px;
+  }
+
+  .ai-panel-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+
+  .ai-icon {
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, #00e5a0, #4d9fff);
+    border-radius: 6px; display: flex; align-items: center;
+    justify-content: center; font-size: 12px;
+  }
+
+  .ai-panel-title { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+
+  .ai-status { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  .ai-output { font-size: 13px; line-height: 1.75; color: rgba(232,237,242,0.85); }
+
+  .ai-output .section-head {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--green); letter-spacing: 0.1em;
+    text-transform: uppercase; margin: 14px 0 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ai-output .section-head::before { content: '//'; color: var(--muted2); }
+
+  .ai-loading {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 13px; padding: 20px 0;
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--muted2);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .strategy-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 14px; }
+
+  .strategy-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+  }
+
+  .strategy-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--accent); letter-spacing: 0.1em; margin-bottom: 5px;
+  }
+
+  .strategy-text { font-size: 12px; line-height: 1.6; color: rgba(232,237,242,0.8); }
+
+  .placeholder-msg {
+    text-align: center; padding: 60px 20px;
+    color: var(--muted); font-size: 13px; line-height: 1.7;
+  }
+
+  /* ── CHAT PANEL ─────────────────────────────── */
+  .chat-panel {
+    position: fixed;
+    top: 90px;
+    right: 0;
+    width: var(--chat-w);
+    height: calc(100vh - 90px);
+    background: var(--bg2);
+    border-left: 1px solid var(--border2);
+    display: flex;
+    flex-direction: column;
+    z-index: 150;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .chat-panel.open { transform: translateX(0); }
+
+  .chat-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .chat-ai-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #00e5a0, #4d9fff);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .chat-title { font-size: 13px; font-weight: 700; }
+  .chat-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--green); letter-spacing: 0.1em; }
+
+  .chat-close {
+    margin-left: auto;
+    background: none; border: none;
+    color: var(--muted); font-size: 18px;
+    cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; transition: color 0.15s;
+  }
+  .chat-close:hover { color: var(--text); }
+
+  .chat-messages {
+    flex: 1; overflow-y: auto;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .chat-msg {
+    max-width: 90%;
+    padding: 10px 13px;
+    border-radius: 10px;
+    font-size: 12px; line-height: 1.6;
+  }
+
+  .chat-msg.user {
+    background: rgba(0,229,160,0.12);
+    border: 1px solid rgba(0,229,160,0.2);
+    color: var(--text);
+    align-self: flex-end;
+    border-bottom-right-radius: 3px;
+  }
+
+  .chat-msg.ai {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: rgba(232,237,242,0.9);
+    align-self: flex-start;
+    border-bottom-left-radius: 3px;
+  }
+
+  .chat-msg.ai .msg-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--green);
+    letter-spacing: 0.1em; margin-bottom: 5px;
+  }
+
+  .chat-input-area {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: flex-end;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    resize: none;
+    min-height: 38px;
+    max-height: 100px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .chat-input:focus { border-color: rgba(0,229,160,0.4); }
+  .chat-input::placeholder { color: var(--muted); }
+
+  .chat-send {
+    background: var(--green);
+    border: none; border-radius: 8px;
+    width: 36px; height: 36px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .chat-send:hover { opacity: 0.85; }
+  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .chat-suggestions {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    padding: 0 14px 10px;
+  }
+
+  .chat-sug-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 9px; border-radius: 5px;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .chat-sug-btn:hover { background: rgba(0,229,160,0.08); color: var(--green); border-color: rgba(0,229,160,0.3); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--muted2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────── -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">SM</div>
+    <div>
+      <div class="logo-text">STOCKMIND AI</div>
+      <div class="logo-sub">PREDICTION ENGINE v3.0</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      MARKET LIVE
+    </div>
+    <div class="market-time" id="clock">--:--:-- EST</div>
+    <button class="chat-toggle-btn" onclick="toggleChat()">
+      💬 AI Analyst
+    </button>
+  </div>
+</div>
+
+<!-- ── TICKER ─────────────────────────────── -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
+<!-- ── MAIN LAYOUT ─────────────────────────── -->
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-label">Top Companies</div>
+    <div id="stockList"></div>
+  </div>
+  <div class="content" id="contentArea">
+    <div class="placeholder-msg">
+      <span style="font-size:36px;display:block;margin-bottom:12px">📈</span>
+      Select a company from the left to begin analysis.<br>
+      StockMind AI will generate predictions and strategy insights.
+    </div>
+  </div>
+</div>
+
+<!-- ── AI CHAT PANEL ──────────────────────── -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-ai-icon">🤖</div>
+    <div>
+      <div class="chat-title">StockMind Analyst</div>
+      <div class="chat-subtitle">AI-POWERED · REAL-TIME</div>
+    </div>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg ai">
+      <div class="msg-tag">STOCKMIND AI</div>
+      Hello! I'm your AI stock market analyst. Ask me anything about stocks, market trends, investment strategies, or company performance. I have deep knowledge of all major publicly traded companies.
+    </div>
+  </div>
+
+  <div class="chat-suggestions" id="chatSuggestions">
+    <button class="chat-sug-btn" onclick="sendSuggestion(this)">What's Apple's outlook?</button>
+    <button class="chat-sug-btn" onclick="sendSuggestion(this)">Best dividend stocks?</button>
+    <button class="chat-sug-btn" onclick="sendSuggestion(this)">AI sector trends?</button>
+    <button class="chat-sug-btn" onclick="sendSuggestion(this)">Should I buy NVDA?</button>
+  </div>
+
+  <div class="chat-input-area">
+    <textarea class="chat-input" id="chatInput" placeholder="Ask about any stock, sector, or strategy..." rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+      oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+
+// ── STOCK DATA (realistic large-cap prices) ───────────────────────
+const STOCKS = [
+  { sym:'AAPL', name:'Apple',      sector:'Technology',  exchange:'NASDAQ', color:'#A8A8A8', bg:'#1c1c1e', price:213.32,  chg:+1.24, mcap:'3.24T', pe:'33.2', vol:'61.2M', beta:'1.21', high52:'237.23', low52:'164.08' },
+  { sym:'MSFT', name:'Microsoft',  sector:'Technology',  exchange:'NASDAQ', color:'#00a4ef', bg:'#001525', price:432.50,  chg:+0.87, mcap:'3.19T', pe:'36.8', vol:'24.3M', beta:'0.90', high52:'471.82', low52:'309.45' },
+  { sym:'GOOGL', name:'Alphabet',  sector:'Technology',  exchange:'NASDAQ', color:'#4285F4', bg:'#001028', price:178.62,  chg:-0.42, mcap:'2.18T', pe:'24.9', vol:'28.1M', beta:'1.06', high52:'208.70', low52:'140.53' },
+  { sym:'AMZN', name:'Amazon',     sector:'Consumer',    exchange:'NASDAQ', color:'#ff9900', bg:'#1a0f00', price:220.95,  chg:+2.15, mcap:'2.34T', pe:'45.2', vol:'43.8M', beta:'1.35', high52:'246.25', low52:'151.61' },
+  { sym:'META', name:'Meta',       sector:'Technology',  exchange:'NASDAQ', color:'#0082fb', bg:'#00091c', price:539.62,  chg:+1.63, mcap:'1.37T', pe:'28.1', vol:'17.4M', beta:'1.29', high52:'638.40', low52:'374.16' },
+  { sym:'NVDA', name:'NVIDIA',     sector:'Semiconductors',exchange:'NASDAQ',color:'#76b900',bg:'#0a1500', price:1245.80, chg:+3.42, mcap:'3.06T', pe:'68.4', vol:'47.9M', beta:'1.74', high52:'1374.50',low52:'435.10' },
+  { sym:'NFLX', name:'Netflix',    sector:'Entertainment',exchange:'NASDAQ', color:'#e50914', bg:'#1a0001', price:712.44,  chg:-1.08, mcap:'304.1B', pe:'42.7', vol:'4.8M', beta:'1.19', high52:'820.47', low52:'491.12' },
+  { sym:'WMT',  name:'Walmart',    sector:'Retail',      exchange:'NYSE',   color:'#0071CE', bg:'#001020', price:96.25,   chg:+0.33, mcap:'776.2B', pe:'35.1', vol:'12.9M', beta:'0.51', high52:'105.30', low52:'60.28' },
+  { sym:'MCD',  name:"McDonald's", sector:'Restaurant',  exchange:'NYSE',   color:'#FFC72C', bg:'#1a1000', price:302.78,  chg:+0.72, mcap:'218.9B', pe:'24.1', vol:'3.1M', beta:'0.71', high52:'325.09', low52:'243.45' },
+  { sym:'TSLA', name:'Tesla',      sector:'Automotive',  exchange:'NASDAQ', color:'#cc0000', bg:'#1a0000', price:256.10,  chg:-2.34, mcap:'818.7B', pe:'59.6', vol:'103.4M',beta:'2.31', high52:'488.54', low52:'138.80' },
+  { sym:'JPM',  name:'JPMorgan',   sector:'Finance',     exchange:'NYSE',   color:'#005eb8', bg:'#000e1a', price:218.45,  chg:+0.94, mcap:'626.3B', pe:'13.2', vol:'9.7M',  beta:'1.11', high52:'238.74', low52:'135.19' },
+  { sym:'V',    name:'Visa',       sector:'Finance',     exchange:'NYSE',   color:'#1a1f71', bg:'#08091a', price:307.82,  chg:+0.61, mcap:'631.5B', pe:'30.4', vol:'5.8M',  beta:'0.95', high52:'344.34', low52:'227.16' },
+  { sym:'BRK',  name:'Berkshire',  sector:'Conglomerate',exchange:'NYSE',   color:'#8B4513', bg:'#1a0a00', price:442920,  chg:+0.48, mcap:'985.4B', pe:'21.8', vol:'3.2K',  beta:'0.88', high52:'468350', low52:'345040' },
+  { sym:'UNH',  name:'UnitedHealth',sector:'Healthcare', exchange:'NYSE',   color:'#007bbf', bg:'#001018', price:512.30,  chg:-0.56, mcap:'471.2B', pe:'22.4', vol:'3.9M',  beta:'0.62', high52:'592.66', low52:'421.60' },
+];
+
+// ── CLOCK ───────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const opts = { timeZone:'America/New_York', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', opts) + ' EST';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── TICKER ──────────────────────────────────────────────────────
+(function buildTicker() {
+  const track = document.getElementById('tickerTrack');
+  const all = [...STOCKS, ...STOCKS];
+  all.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'ticker-item';
+    const up = s.chg >= 0;
+    const priceStr = s.price >= 1000 ? s.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : s.price.toFixed(2);
+    el.innerHTML = `<span class="ticker-sym">${s.sym}</span><span class="ticker-price">$${priceStr}</span><span class="ticker-chg ${up?'up':'dn'}">${up?'+':''}${s.chg.toFixed(2)}%</span>`;
+    track.appendChild(el);
+  });
+})();
+
+// ── SIDEBAR ─────────────────────────────────────────────────────
+(function buildList() {
+  const list = document.getElementById('stockList');
+  STOCKS.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'stock-item';
+    el.dataset.idx = i;
+    const up = s.chg >= 0;
+    const priceStr = s.price >= 1000 ? s.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : s.price.toFixed(2);
+    el.innerHTML = `
+      <div class="stock-logo" style="background:${s.bg};color:${s.color}">${s.sym.slice(0,2)}</div>
+      <div class="stock-info">
+        <div class="stock-sym">${s.sym}</div>
+        <div class="stock-name">${s.name}</div>
+      </div>
+      <div class="stock-price-col">
+        <div class="stock-price">$${priceStr}</div>
+        <div class="stock-chg ${up?'up':'dn'}">${up?'+':''}${s.chg.toFixed(2)}%</div>
+      </div>`;
+    el.addEventListener('click', () => selectStock(i));
+    list.appendChild(el);
+  });
+})();
+
+// ── CANDLESTICK / OHLC DATA GENERATION ─────────────────────────
+function generateOHLC(basePrice, days, volatility) {
+  const candles = [];
+  const labels = [];
+  let close = basePrice * (0.55 + Math.random() * 0.1);
+  const now = new Date();
+  let dayCount = 0;
+
+  for (let i = days; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    dayCount++;
+
+    // Slight upward drift
+    const drift = 0.0003;
+    const dailyVol = volatility * (0.5 + Math.random());
+    const open = close * (1 + (Math.random() - 0.48) * dailyVol * 0.3);
+    const range = close * dailyVol;
+    const high = Math.max(open, close) + Math.random() * range * 0.8;
+    const low  = Math.min(open, close) - Math.random() * range * 0.8;
+    close = open * (1 + drift + (Math.random() - 0.48) * dailyVol);
+
+    candles.push({ o: +open.toFixed(2), h: +high.toFixed(2), l: +low.toFixed(2), c: +close.toFixed(2) });
+
+    const labelOpts = days > 365
+      ? { month:'short', year:'2-digit' }
+      : days > 30
+      ? { month:'short', day:'numeric' }
+      : { month:'short', day:'numeric' };
+
+    // Only add label for certain intervals
+    if (days <= 7 || (days <= 30 && dayCount % 3 === 0) || (days <= 90 && dayCount % 7 === 0) || (days <= 365 && dayCount % 20 === 0) || (days > 365 && dayCount % 60 === 0)) {
+      labels.push({ idx: candles.length - 1, text: d.toLocaleDateString('en-US', labelOpts) });
+    }
+  }
+  return { candles, labels };
+}
+
+function getRange(sym, range) {
+  const s = STOCKS.find(x => x.sym === sym);
+  const days = { '1W': 7, '1M': 30, '3M': 90, '1Y': 365, '5Y': 1825, '10Y': 3650 }[range] || 365;
+  const vol  = { '1W': 0.012, '1M': 0.015, '3M': 0.016, '1Y': 0.018, '5Y': 0.02, '10Y': 0.022 }[range] || 0.018;
+  return generateOHLC(s.price, days, vol);
+}
+
+let currentChart = null;
+let currentStock = null;
+let currentRange = '1Y';
+
+function selectStock(idx) {
+  currentStock = idx;
+  document.querySelectorAll('.stock-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+  renderContent(idx, '1Y');
+}
+
+function fmtPrice(p) {
+  return p >= 1000
+    ? p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : p.toFixed(2);
+}
+
+function renderContent(idx, range) {
+  currentRange = range;
+  const s = STOCKS[idx];
+  const { candles, labels } = getRange(s.sym, range);
+  const up = s.chg >= 0;
+  const startP = candles[0].c;
+  const latestP = candles[candles.length - 1].c;
+  const totalReturn = ((latestP - startP) / startP * 100).toFixed(1);
+
+  const content = document.getElementById('contentArea');
+  content.innerHTML = `
+    <div class="company-header">
+      <div style="display:flex;align-items:flex-start">
+        <div class="company-logo-big" style="background:${s.bg};color:${s.color};margin-right:14px">${s.sym.slice(0,2)}</div>
+        <div class="company-title-group">
+          <div class="company-name">${s.name}</div>
+          <div class="company-sub">${s.sym} · ${s.exchange} · ${s.sector}</div>
+          <div class="company-meta">
+            <div>
+              <div class="price-big">$${fmtPrice(s.price)}</div>
+              <div class="price-change-big ${up?'up':'dn'}">${up?'▲':'▼'} $${Math.abs(s.chg).toFixed(2)} (${up?'+':''}${s.chg.toFixed(2)}%)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="ai-predict-btn" id="predictBtn" onclick="runAIPrediction(${idx})">
+        <span>⚡</span> Run AI Analysis
+      </button>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-box"><div class="metric-lbl">Market Cap</div><div class="metric-val">$${s.mcap}</div></div>
+      <div class="metric-box"><div class="metric-lbl">P/E Ratio</div><div class="metric-val">${s.pe}x</div></div>
+      <div class="metric-box"><div class="metric-lbl">Volume</div><div class="metric-val">${s.vol}</div></div>
+      <div class="metric-box"><div class="metric-lbl">Beta</div><div class="metric-val">${s.beta}</div></div>
+      <div class="metric-box"><div class="metric-lbl">52W High</div><div class="metric-val up">$${s.high52}</div></div>
+      <div class="metric-box"><div class="metric-lbl">52W Low</div><div class="metric-val dn">$${s.low52}</div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">
+          Price History · <span style="color:${parseFloat(totalReturn)>=0?'var(--green)':'var(--red)'}">
+            ${parseFloat(totalReturn)>=0?'+':''}${totalReturn}% ${range}
+          </span>
+        </div>
+        <div class="range-tabs">
+          ${['1W','1M','3M','1Y','5Y','10Y'].map(r =>
+            `<button class="range-tab ${r===range?'active':''}" onclick="selectStock(${idx}); renderContent(${idx},'${r}')">${r}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="priceChart"></canvas>
+      </div>
+    </div>
+
+    <div class="pred-grid" id="predGrid">${renderPredPlaceholders()}</div>
+
+    <div class="ai-panel" id="aiPanel">
+      <div class="ai-panel-header">
+        <div class="ai-icon">🤖</div>
+        <div class="ai-panel-title">AI Market Intelligence</div>
+        <div class="ai-status" id="aiStatus">AWAITING INPUT</div>
+      </div>
+      <div id="aiOutput">
+        <div class="placeholder-msg" style="padding:16px 0">
+          <span style="font-size:20px;display:block;margin-bottom:8px">⚡</span>
+          Click "Run AI Analysis" to generate predictions, risk assessment, and strategic recommendations for ${s.name}.
+        </div>
+      </div>
+    </div>
+  `;
+
+  renderCandlestickChart(candles, labels, s);
+}
+
+// ── CANDLESTICK CHART RENDERER ──────────────────────────────────
+function renderCandlestickChart(candles, labelMarkers, s) {
+  const canvas = document.getElementById('priceChart');
+  if (!canvas) return;
+
+  if (currentChart) { currentChart.destroy(); currentChart = null; }
+
+  const ctx = canvas.getContext('2d');
+  const wrap = canvas.parentElement;
+
+  // Resize
+  canvas.width = wrap.clientWidth * window.devicePixelRatio;
+  canvas.height = 280 * window.devicePixelRatio;
+  canvas.style.width = wrap.clientWidth + 'px';
+  canvas.style.height = '280px';
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const W = wrap.clientWidth;
+  const H = 280;
+  const padL = 62, padR = 16, padT = 18, padB = 36;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  const minP = Math.min(...prices) * 0.998;
+  const maxP = Math.max(...prices) * 1.002;
+  const priceRange = maxP - minP;
+
+  function xPos(i) { return padL + (i / (candles.length - 1)) * chartW; }
+  function yPos(p) { return padT + (1 - (p - minP) / priceRange) * chartH; }
+
+  // Background
+  ctx.fillStyle = '#0c1520';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  const gridLines = 6;
+  for (let g = 0; g <= gridLines; g++) {
+    const y = padT + (g / gridLines) * chartH;
+    const price = maxP - (g / gridLines) * priceRange;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5a6a7a';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + fmtPrice(price), padL - 5, y + 3);
+  }
+
+  // Volume bars (background, subtle)
+  const volMax = Math.max(...candles.map((_,i) => i)) || 1;
+  const volH = chartH * 0.18;
+
+  // Candlesticks
+  const candleW = Math.max(1, Math.min(8, (chartW / candles.length) * 0.6));
+
+  candles.forEach((c, i) => {
+    const x = xPos(i);
+    const isUp = c.c >= c.o;
+    const color = isUp ? '#00e5a0' : '#ff3d5a';
+
+    const yH = yPos(c.h);
+    const yL = yPos(c.l);
+    const yO = yPos(c.o);
+    const yC = yPos(c.c);
+
+    const bodyTop = Math.min(yO, yC);
+    const bodyH = Math.max(1, Math.abs(yC - yO));
+
+    // Wick
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yH);
+    ctx.lineTo(x, bodyTop);
+    ctx.moveTo(x, bodyTop + bodyH);
+    ctx.lineTo(x, yL);
+    ctx.stroke();
+
+    // Body
+    if (candleW >= 2) {
+      ctx.fillStyle = isUp ? 'rgba(0,229,160,0.85)' : 'rgba(255,61,90,0.85)';
+      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, bodyTop);
+      ctx.lineTo(x, bodyTop + bodyH);
+      ctx.stroke();
+    }
+  });
+
+  // X-axis labels
+  ctx.fillStyle = '#5a6a7a';
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  labelMarkers.forEach(lm => {
+    const x = xPos(lm.idx);
+    ctx.fillText(lm.text, x, H - padB + 14);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Hover crosshair via mouse
+  let hoverIdx = null;
+  let tooltip = { x: 0, y: 0, c: null };
+
+  function drawTooltip() {
+    if (hoverIdx === null) return;
+    const c = candles[hoverIdx];
+    const x = xPos(hoverIdx);
+    const y = yPos((c.h + c.l) / 2);
+
+    // Crosshair
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Tooltip box
+    const boxW = 115, boxH = 76;
+    let bx = x + 10;
+    let by = Math.max(padT, Math.min(y - boxH / 2, padT + chartH - boxH));
+    if (bx + boxW > W - padR) bx = x - boxW - 10;
+
+    ctx.fillStyle = '#0c1520';
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, bx, by, boxW, boxH, 6);
+
+    const isUp = c.c >= c.o;
+    ctx.fillStyle = '#5a6a7a';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('O', bx + 10, by + 18);
+    ctx.fillText('H', bx + 10, by + 32);
+    ctx.fillText('L', bx + 10, by + 46);
+    ctx.fillText('C', bx + 10, by + 60);
+
+    ctx.fillStyle = '#e8edf2';
+    ctx.fillText('$' + fmtPrice(c.o), bx + 30, by + 18);
+    ctx.fillStyle = '#00e5a0';
+    ctx.fillText('$' + fmtPrice(c.h), bx + 30, by + 32);
+    ctx.fillStyle = '#ff3d5a';
+    ctx.fillText('$' + fmtPrice(c.l), bx + 30, by + 46);
+    ctx.fillStyle = isUp ? '#00e5a0' : '#ff3d5a';
+    ctx.fillText('$' + fmtPrice(c.c), bx + 30, by + 60);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0c1520';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    for (let g = 0; g <= gridLines; g++) {
+      const y = padT + (g / gridLines) * chartH;
+      const price = maxP - (g / gridLines) * priceRange;
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(W - padR, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#5a6a7a';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('$' + fmtPrice(price), padL - 5, y + 3);
+    }
+
+    // Candles
+    candles.forEach((c2, i2) => {
+      const x2 = xPos(i2);
+      const isUp2 = c2.c >= c2.o;
+      const col = isUp2 ? '#00e5a0' : '#ff3d5a';
+      const iH = i2 === hoverIdx ? 1.5 : 1;
+
+      const yH2 = yPos(c2.h), yL2 = yPos(c2.l), yO2 = yPos(c2.o), yC2 = yPos(c2.c);
+      const bTop = Math.min(yO2, yC2);
+      const bH = Math.max(1, Math.abs(yC2 - yO2));
+
+      ctx.strokeStyle = col;
+      ctx.lineWidth = iH;
+      ctx.beginPath();
+      ctx.moveTo(x2, yH2);
+      ctx.lineTo(x2, bTop);
+      ctx.moveTo(x2, bTop + bH);
+      ctx.lineTo(x2, yL2);
+      ctx.stroke();
+
+      if (candleW >= 2) {
+        ctx.fillStyle = isUp2
+          ? (i2 === hoverIdx ? 'rgba(0,229,160,1)' : 'rgba(0,229,160,0.85)')
+          : (i2 === hoverIdx ? 'rgba(255,61,90,1)' : 'rgba(255,61,90,0.85)');
+        ctx.fillRect(x2 - candleW / 2, bTop, candleW, bH);
+      } else {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x2, bTop);
+        ctx.lineTo(x2, bTop + bH);
+        ctx.stroke();
+      }
+    });
+
+    // X labels
+    ctx.fillStyle = '#5a6a7a';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    labelMarkers.forEach(lm => {
+      const x = xPos(lm.idx);
+      ctx.fillText(lm.text, x, H - padB + 14);
+    });
+
+    drawTooltip();
+  }
+
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const relX = mx - padL;
+    if (relX < 0 || relX > chartW) { hoverIdx = null; redraw(); return; }
+    hoverIdx = Math.round((relX / chartW) * (candles.length - 1));
+    hoverIdx = Math.max(0, Math.min(candles.length - 1, hoverIdx));
+    redraw();
+  };
+
+  canvas.onmouseleave = function() { hoverIdx = null; redraw(); };
+}
+
+// ── PREDICTION PLACEHOLDERS ──────────────────────────────────────
+function renderPredPlaceholders() {
+  return ['NEXT DAY','NEXT MONTH','NEXT YEAR','NEXT DECADE'].map(l => `
+    <div class="pred-card neutral">
+      <div class="pred-label">${l}</div>
+      <div class="pred-direction neutral" style="font-size:13px;color:var(--muted)">Run analysis</div>
+      <div class="pred-confidence" style="margin-top:8px">— confidence</div>
+    </div>
+  `).join('');
+}
+
+// ── AI PREDICTION ─────────────────────────────────────────────
+async function runAIPrediction(idx) {
+  const s = STOCKS[idx];
+  const btn = document.getElementById('predictBtn');
+  const aiOutput = document.getElementById('aiOutput');
+  const aiStatus = document.getElementById('aiStatus');
+  const predGrid = document.getElementById('predGrid');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div> Analyzing...';
+  aiStatus.textContent = 'AI PROCESSING...';
+  aiOutput.innerHTML = `<div class="ai-loading"><div class="spinner"></div> StockMind AI is analyzing ${s.name} — processing historical data, macro trends, and competitive landscape...</div>`;
+
+  const prompt = `You are an elite Wall Street quantitative analyst and AI strategist. Analyze ${s.name} (${s.sym}) stock:
+- Current Price: $${fmtPrice(s.price)}
+- Market Cap: $${s.mcap}
+- Sector: ${s.sector}
+- P/E Ratio: ${s.pe}x
+- Beta: ${s.beta}
+- 52W High: $${s.high52} | 52W Low: $${s.low52}
+- Today's Change: ${s.chg > 0 ? '+' : ''}${s.chg}%
+
+Return ONLY valid JSON (no markdown, no preamble):
+{
+  "day": { "direction": "UP" or "DOWN", "confidence": 0-100, "target": "$X,XXX.XX", "rationale": "2-3 sentences" },
+  "month": { "direction": "UP" or "DOWN", "confidence": 0-100, "target": "$X,XXX.XX", "rationale": "2-3 sentences" },
+  "year": { "direction": "UP" or "DOWN", "confidence": 0-100, "target": "$X,XXX.XX", "rationale": "2-3 sentences" },
+  "decade": { "direction": "UP" or "DOWN", "confidence": 0-100, "target": "$X,XXX.XX", "rationale": "2-3 sentences" },
+  "riskLevel": "LOW" or "MEDIUM" or "HIGH",
+  "sentiment": "BULLISH" or "BEARISH" or "NEUTRAL",
+  "keyRisks": ["risk1", "risk2", "risk3"],
+  "catalysts": ["catalyst1", "catalyst2", "catalyst3"],
+  "strategies": [
+    { "title": "Strategy name", "detail": "2-3 sentence actionable business strategy for ${s.name}" },
+    { "title": "Strategy name", "detail": "2-3 sentence strategy" },
+    { "title": "Strategy name", "detail": "2-3 sentence strategy" },
+    { "title": "Strategy name", "detail": "2-3 sentence strategy" }
+  ],
+  "summary": "3-4 sentence executive summary of the investment thesis"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.content?.map(c => c.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    const periods = [
+      { key: 'day', label: 'NEXT DAY' },
+      { key: 'month', label: 'NEXT MONTH' },
+      { key: 'year', label: 'NEXT YEAR' },
+      { key: 'decade', label: 'NEXT DECADE' }
+    ];
+
+    predGrid.innerHTML = periods.map(p => {
+      const pred = result[p.key];
+      const cls = pred.direction === 'UP' ? 'bullish' : 'bearish';
+      const arrow = pred.direction === 'UP' ? '▲' : '▼';
+      const barColor = pred.direction === 'UP' ? '#00e5a0' : '#ff3d5a';
+      return `
+        <div class="pred-card ${cls}">
+          <div class="pred-label">${p.label}</div>
+          <div class="pred-direction ${cls}">${arrow} ${pred.direction}</div>
+          <div class="pred-value" style="color:${barColor}">${pred.target}</div>
+          <div class="conf-bar-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="pred-confidence">${pred.confidence}% confidence</span>
+            </div>
+            <div class="conf-bar">
+              <div class="conf-bar-fill" style="width:${pred.confidence}%;background:${barColor}"></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const sentColor = result.sentiment === 'BULLISH' ? 'var(--green)' : result.sentiment === 'BEARISH' ? 'var(--red)' : 'var(--amber)';
+    const riskColor = result.riskLevel === 'LOW' ? 'var(--green)' : result.riskLevel === 'HIGH' ? 'var(--red)' : 'var(--amber)';
+
+    aiStatus.innerHTML = `<span style="color:${sentColor}">${result.sentiment}</span> · <span style="color:${riskColor}">${result.riskLevel} RISK</span>`;
+
+    aiOutput.innerHTML = `
+      <div class="ai-output">
+        <div class="section-head">Executive Summary</div>
+        <p>${result.summary}</p>
+
+        <div class="section-head">Key Catalysts</div>
+        <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:5px">
+          ${result.catalysts.map(c => `<li style="display:flex;gap:8px;font-size:13px"><span style="color:var(--green);flex-shrink:0">+</span>${c}</li>`).join('')}
+        </ul>
+
+        <div class="section-head">Risk Factors</div>
+        <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:5px">
+          ${result.keyRisks.map(r => `<li style="display:flex;gap:8px;font-size:13px"><span style="color:var(--red);flex-shrink:0">−</span>${r}</li>`).join('')}
+        </ul>
+
+        <div class="section-head">Business Strategy Recommendations</div>
+        <div class="strategy-grid">
+          ${result.strategies.map((s2, i) => `
+            <div class="strategy-item">
+              <div class="strategy-num">0${i+1} · ${s2.title.toUpperCase()}</div>
+              <div class="strategy-text">${s2.detail}</div>
+            </div>`).join('')}
+        </div>
+
+        <div style="margin-top:16px;padding:12px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:0.1em">⚠ DISCLAIMER</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6">AI predictions are based on pattern analysis and should not be taken as financial advice. Past performance does not guarantee future results. Always consult a licensed financial advisor before making investment decisions.</div>
+        </div>
+      </div>`;
+
+  } catch(e) {
+    aiOutput.innerHTML = `<div style="color:var(--red);font-size:13px;padding:10px 0">Analysis error: ${e.message}. Please try again.</div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>⚡</span> Run AI Analysis';
+}
+
+// ── CHAT PANEL ───────────────────────────────────────────────────
+let chatOpen = false;
+let chatHistory = [];
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chatPanel');
+  panel.classList.toggle('open', chatOpen);
+}
+
+function sendSuggestion(btn) {
+  const msg = btn.textContent;
+  document.getElementById('chatInput').value = msg;
+  sendChat();
+  document.getElementById('chatSuggestions').style.display = 'none';
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  appendChatMsg('user', msg);
+
+  // Show typing indicator
+  const typingId = 'typing-' + Date.now();
+  const messagesEl = document.getElementById('chatMessages');
+  const typingEl = document.createElement('div');
+  typingEl.id = typingId;
+  typingEl.className = 'chat-msg ai';
+  typingEl.innerHTML = `<div class="msg-tag">STOCKMIND AI</div><div class="spinner" style="width:12px;height:12px;border-width:2px;margin:4px 0"></div>`;
+  messagesEl.appendChild(typingEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  chatHistory.push({ role: 'user', content: msg });
+
+  const systemPrompt = `You are StockMind AI, an expert stock market analyst and financial strategist with deep knowledge of global equity markets, macroeconomics, company financials, and investment strategy. You provide accurate, insightful analysis about stocks, market trends, sectors, and investment approaches. You are concise yet thorough. You always remind users that your analysis is informational and not personalized financial advice. Current date: ${new Date().toLocaleDateString()}.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+
+    const data = await res.json();
+    const reply = data.content?.map(c => c.text || '').join('') || 'Sorry, I could not generate a response.';
+
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    document.getElementById(typingId)?.remove();
+    appendChatMsg('ai', reply);
+
+  } catch(e) {
+    document.getElementById(typingId)?.remove();
+    appendChatMsg('ai', 'Connection error. Please try again.');
+  }
+
+  sendBtn.disabled = false;
+}
+
+function appendChatMsg(role, text) {
+  const messagesEl = document.getElementById('chatMessages');
+  const el = document.createElement('div');
+  el.className = `chat-msg ${role}`;
+
+  if (role === 'ai') {
+    // Simple markdown-like formatting
+    const formatted = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    el.innerHTML = `<div class="msg-tag">STOCKMIND AI</div><p>${formatted}</p>`;
+  } else {
+    el.textContent = text;
+  }
+
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+selectStock(0);
+</script>
+</body>
+</html>
